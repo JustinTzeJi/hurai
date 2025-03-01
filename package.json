@@ -3,10 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
-    "install-uv": "curl -LsSf https://astral.sh/uv/install.sh | sh",
-    "install-py": "uv python install",
-    "sync-py": "uv sync",
-    "fastapi-dev": "uv run uvicorn api.index:app --reload",
+    "fastapi-dev": "pip3 install -r requirements.txt && python3 -m uvicorn api.index:app --reload",
     "next-dev": "next dev",
     "dev": "concurrently \"npm run next-dev\" \"npm run fastapi-dev\"",
     "build": "next build",
