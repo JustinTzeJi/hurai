@@ -5,6 +5,7 @@
   "scripts": {
     "install-uv": "curl -LsSf https://astral.sh/uv/install.sh | sh",
     "install-py": "uv python install",
+    "sync-py": "uv sync",
     "fastapi-dev": "uv run uvicorn api.index:app --reload",
     "next-dev": "next dev",
     "dev": "concurrently \"npm run next-dev\" \"npm run fastapi-dev\"",
