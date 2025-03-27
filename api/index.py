@@ -1,14 +1,10 @@
-import os
 import requests
 from dotenv import load_dotenv
 from pydantic import BaseModel
-from fastapi import FastAPI, File, UploadFile, HTTPException, Security, status
-from fastapi.security import APIKeyHeader
+from fastapi import FastAPI, File, UploadFile, HTTPException, status
 
 load_dotenv()
 
-api_key_header = APIKeyHeader(name="X-API-Key")
-### Create FastAPI instance with custom docs and openapi url
 app = FastAPI(docs_url="/api/py/docs", openapi_url="/api/py/openapi.json")
 
 
@@ -38,22 +34,17 @@ class alt_text_translated(BaseModel):
     }
 
 
-def get_api_key(api_key_header: str = Security(api_key_header)) -> str:
-    api_keys = os.getenv("API_KEYS").split(",")
-    if api_key_header in api_keys:
-        return api_key_header
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or missing API Key",
-    )
-
-
 @app.post("/api/py/generate-caption-plain")
 def gen_caption_plain(
-    file: UploadFile, api_key: str = Security(get_api_key)
+    file: UploadFile, hugging_face_api_key: str
 ) -> alt_text:
-    API_URL = "https://router.huggingface.co/hf-inference/models/Salesforce/blip-image-captioning-base"
-    headers = {"Authorization": f"Bearer {os.getenv('HUGGINGFACE_INF_KEY')}"}
+    API_URL = "https://router.huggingface.co/hf-inference/models/Salesforce/blip-image-captioning-large"
+    headers = {"Authorization": f"Bearer {hugging_face_api_key}"}
+
+    if file.content_type not in ["image/jpeg", "image/png"]:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid image file. Only .jpg, .jpeg and .png are accepted.")
+    if file.size > 1000000:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="File size is larger than 1MB.")
     try:
         contents = file.file.read()
         # with open(file.filename, 'wb') as f:
@@ -68,7 +59,7 @@ def gen_caption_plain(
 
 
 @app.post("/api/py/translate-my")
-def translate_my(alt_text, api_key: str = Security(get_api_key)) -> alt_text_translated:
+def translate_my(alt_text) -> alt_text_translated:
     API_URL = "https://api.mesolitica.com/translation/public"
     headers = {"Content-Type": "application/json"}
 
@@ -88,8 +79,8 @@ def translate_my(alt_text, api_key: str = Security(get_api_key)) -> alt_text_tra
 
 @app.post("/api/py/generate-caption")
 def gen_caption(
-    file: UploadFile, api_key: str = Security(get_api_key)
+    file: UploadFile, hugging_face_api_key: str
 ) -> alt_text_translated:
-    alt_gen = gen_caption_plain(file)
+    alt_gen = gen_caption_plain(file, hugging_face_api_key)
     alt_gen_final = translate_my(alt_gen.alt_text)
     return alt_gen_final

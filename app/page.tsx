@@ -1,122 +1,271 @@
-import Image from "next/image";
+"use client"
+
+import { useState, ChangeEvent, MouseEvent, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { useTheme } from "next-themes"
+import { Moon, Sun, Github } from "lucide-react"
 import Link from "next/link";
 
+
+type AltTextResponse = {
+  en?: string; // English text (optional)
+  ms?: string; // Malay text (optional)
+};
+
 export default function Home() {
+  const { setTheme } = useTheme()
+  const [apiKey, setApiKey] = useState<string>('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [generatedAltText, setGeneratedAltText] = useState<AltTextResponse | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>('');
+
+  const revokePreviewUrl = () => {
+    if (imagePreviewUrl) {
+      URL.revokeObjectURL(imagePreviewUrl);
+      setImagePreviewUrl('');
+    }
+  };
+  useEffect(() => {
+    // Return the cleanup function
+    return () => {
+      revokePreviewUrl();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imagePreviewUrl]);
+
+  const handleApiKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setApiKey(event.target.value);
+    setError(null);
+  };
+
+
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+
+    revokePreviewUrl();
+    setGeneratedAltText(null);
+
+    if (event.target.files && event.target.files.length > 0) {
+      const file = event.target.files[0];
+      const allowedTypes = ["image/jpeg", "image/png", "image/jpg"];
+      if (allowedTypes.includes(file.type)) {
+        setImageFile(file);
+        setError(null);
+        setGeneratedAltText(null);
+      } else {
+        setError("Invalid file type. Please upload a .jpg, .jpeg, or .png file.");
+        setImageFile(null);
+        event.target.value = '';
+      }
+    } else {
+      setImageFile(null);
+    }
+  };
+
+
+  const handleGenerateClick = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+
+    if (!apiKey.trim()) {
+      setError("HuggingFace API Key is required.");
+      return;
+    }
+    if (!imageFile) {
+      setError("Please upload an image file.");
+      return;
+    }
+
+    setError(null);
+    setGeneratedAltText(null);
+    revokePreviewUrl();
+    setIsLoading(true);
+
+    const formData = new FormData();
+    formData.append('file', imageFile);
+
+    try {
+      const response = await fetch(`/api/py/generate-caption?hugging_face_api_key=${apiKey}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let errorMsg = `HTTP error! status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.message || errorData.error || errorMsg;
+        } catch (e) {
+        }
+        throw new Error(errorMsg);
+      }
+
+      const result = await response.json();
+      const objectUrl = URL.createObjectURL(imageFile);
+      setGeneratedAltText(result.alt_text || "No alt text generated.");
+      setImagePreviewUrl(objectUrl);
+
+    } catch (err) {
+      console.error('Error sending request:', err);
+      const errorMsg = err instanceof Error ? err.message : "An unknown error occurred.";
+      setError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCancelClick = () => {
+    setApiKey('');
+    setImageFile(null);
+    setError(null);
+    setGeneratedAltText(null);
+    setIsLoading(false);
+    revokePreviewUrl();
+
+    const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing FastApi API&nbsp;
-          <Link href="/api/py/helloFastApi">
-            <code className="font-mono font-bold">api/index.py</code>
-          </Link>
-        </p>
-        <p className="fixed right-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing Next.js API&nbsp;
-          <Link href="/api/helloNextJs">
-            <code className="font-mono font-bold">app/api/helloNextJs</code>
-          </Link>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+    <div className="bg-background text-foreground min-h-screen flex flex-col flex-grow container mx-auto px-4 py-8 md:py-12">
+      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur-sm flex justify-between py-4">
+        <div className="container mx-auto px-4 mt-auto">
+          <h1 className="text-xl font-semibold">Hurai</h1>
+          <p className="text-sm text-muted-foreground hidden sm:block">Generate descriptive alt text for your images.</p>
         </div>
-      </div>
+        <div className="mx-auto mt-auto">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                <span className="sr-only">Toggle theme</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setTheme("light")}>
+                Light
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("dark")}>
+                Dark
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTheme("system")}>
+                System
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </header>
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
+      <main className="flex-grow container mx-auto py-8 md:py-12">
 
-      <div className="mb-32 grid text-center lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
+        <div className="md:flex justify-between gap-12">
+          <Card className="w-full mx-auto mb-10">
+            <CardHeader>
+              <CardTitle>Generate Alt Text</CardTitle>
+              <CardDescription>Upload an image for generating alt text.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid w-full items-center gap-4">
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="hf-api-key">HuggingFace Inference API Key</Label>
+                  <Input
+                    id="hf-api-key"
+                    type="password"
+                    placeholder="Enter your HuggingFace API Key (e.g., hf_...)"
+                    value={apiKey}
+                    onChange={handleApiKeyChange}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="flex flex-col space-y-1.5">
+                  <Label htmlFor="image-upload">Upload an image (.jpg / .jpeg / .png)</Label>
+                  <Input
+                    id="image-upload"
+                    type="file"
+                    accept="image/jpeg, image/png, image/jpg"
+                    onChange={handleFileChange}
+                    disabled={isLoading}
+                  />
+                </div>
+                {error && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                )}
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={handleCancelClick} disabled={isLoading}>Cancel</Button>
+              <Button
+                onClick={handleGenerateClick}
+                disabled={isLoading || !apiKey || !imageFile}
+              >
+                {isLoading ? 'Generating...' : 'Generate'}
+              </Button>
+            </CardFooter>
+          </Card>
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800 hover:dark:bg-opacity-30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
 
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore the Next.js 13 playground.
-          </p>
-        </a>
+          <div className="w-full lg:row-start-1 lg:col-start-2">
 
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+            {isLoading && (
+              <Card className="w-full mx-auto max-h-lg">
+                <CardHeader>
+                  <Skeleton className="h-6 bg-muted rounded w-3/4"></Skeleton>
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="bg-muted rounded-md mb-4 w-full h-60"></Skeleton>
+                  <div className="space-y-3 mt-4 p-3">
+                    <Skeleton className="h-4 bg-muted rounded w-1/4"></Skeleton>
+                    <Skeleton className="h-4 bg-muted rounded w-full"></Skeleton>
+                    <Skeleton className="h-4 bg-muted rounded w-5/6"></Skeleton>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {generatedAltText && (<Card className="w-full mx-auto max-h-lg">
+              <CardHeader>
+                <CardTitle>Result</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <img src={imagePreviewUrl} className="rounded-md mb-4 w-full h-auto object-contain max-h-60" />
+                <div className="flex flex-col space-y-1.5 mt-4 p-3 rounded-md">
+                  <Label>Generated Alt Text:</Label>
+                  <div className="bg-muted rounded-md p-3">
+                  <p className="text-sm">{generatedAltText.en}</p>
+                  <p className="text-sm">{generatedAltText.ms}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>)}
+            {!isLoading && !generatedAltText && !imagePreviewUrl && !error && (
+              <Card className="w-full mx-auto max-h-lg border-dashed">
+                <CardContent className="flex flex-col items-center justify-center p-10 min-h-[200px]">
+                  <p className="text-muted-foreground text-center">Results will appear here after generation.</p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </main>
+      <footer className="top-0 z-10 border-t bg-background/80 backdrop-blur-sm flex justify-between py-2">
+          <h1 className="text-sm font-semibold my-auto hidden">Powered by <a href="https://mesolitica.com/" className="underline underline-offset-4">Mesolitica</a> and <a href="https://huggingface.co/Salesforce/blip-image-captioning-large" className="underline underline-offset-4">Salesforce</a> models</h1>
+          <Button variant="ghost" asChild>
+            <Link href="https://github.com/JustinTzeJi/hurai">
+            <Github/> Repo
+            </Link>
+          </Button>
+      </footer>
+    </div>
   );
 }
