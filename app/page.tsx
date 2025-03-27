@@ -259,7 +259,7 @@ export default function Home() {
         </div>
       </main>
       <footer className="top-0 z-10 border-t bg-background/80 backdrop-blur-sm flex justify-between py-2">
-          <h1 className="text-sm font-semibold my-auto hidden">Powered by <a href="https://mesolitica.com/" className="underline underline-offset-4">Mesolitica</a> and <a href="https://huggingface.co/Salesforce/blip-image-captioning-large" className="underline underline-offset-4">Salesforce</a> models</h1>
+          <h1 className="text-sm font-semibold my-auto hidden sm:block">Powered by <a href="https://mesolitica.com/" className="underline underline-offset-4">Mesolitica</a> and <a href="https://huggingface.co/Salesforce/blip-image-captioning-large" className="underline underline-offset-4">Salesforce</a> models</h1>
           <Button variant="ghost" asChild>
             <Link href="https://github.com/JustinTzeJi/hurai">
             <Github/> Repo
