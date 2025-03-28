@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useTheme } from "next-themes"
-import { Moon, Sun, Github } from "lucide-react"
+import { Moon, Sun, Github, Copy, Check } from "lucide-react"
 import Link from "next/link";
 
 
@@ -30,6 +30,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [generatedAltText, setGeneratedAltText] = useState<AltTextResponse | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string>('');
+  const [copied, setCopied] = useState<string | null>(null)
 
   const revokePreviewUrl = () => {
     if (imagePreviewUrl) {
@@ -134,6 +135,16 @@ export default function Home() {
 
     const fileInput = document.getElementById('image-upload') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
+  }
+
+  const copyToClipboard = async (type: "copy") => {
+    if (!generatedAltText) return
+
+    const textToCopy = generatedAltText.en +"\n"+ generatedAltText.ms
+    await navigator.clipboard.writeText(textToCopy)
+
+    setCopied(type)
+    setTimeout(() => setCopied(null), 2000)
   }
 
   return (
@@ -241,9 +252,21 @@ export default function Home() {
                 <img src={imagePreviewUrl} className="rounded-md mb-4 w-full h-auto object-contain max-h-60" />
                 <div className="flex flex-col space-y-1.5 mt-4 p-3 rounded-md">
                   <Label>Generated Alt Text:</Label>
-                  <div className="bg-muted rounded-md p-3">
+                  <div className="bg-muted rounded-md">
+                  <div className="relative">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-1 right-1"
+                          onClick={() => copyToClipboard("copy")}
+                        >
+                          {copied === "copy" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        </Button>
+                  </div>
+                  <div className="p-3">
                   <p className="text-sm">{generatedAltText.en}</p>
                   <p className="text-sm">{generatedAltText.ms}</p>
+                  </div>
                   </div>
                 </div>
               </CardContent>
